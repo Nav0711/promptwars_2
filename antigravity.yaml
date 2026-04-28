@@ -1,0 +1,42 @@
+# antigravity.yaml
+project: chunav-saathi
+environment: production
+
+models:
+  primary:
+    provider: google
+    model: gemini-2.5-flash
+    temperature: 0.2
+    max_tokens: 1024
+  fallback:
+    provider: groq
+    model: llama3-70b-8192
+    temperature: 0.2
+
+prompts:
+  chatbot_system:
+    version: v1.0
+    file: prompts/chatbot_system.md
+    variables:
+      - retrieved_context
+      - user_language
+      - current_date
+
+guardrails:
+  - id: no_political_opinion
+    type: output_filter
+    pattern: "vote for|best party|worst candidate|should win"
+    action: replace_with_template
+    template: "I'm here to share factual election information only. For voter choices, please rely on your own research."
+
+  - id: block_prediction
+    type: input_classifier
+    trigger: "who will win|predict result|exit poll"
+    action: decline
+    decline_message: "I don't make predictions about election outcomes. I can share official schedules and historical data instead."
+
+observability:
+  log_inputs: true
+  log_outputs: true
+  pii_masking: true
+  latency_alert_ms: 3000
