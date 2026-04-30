@@ -9,10 +9,14 @@ services:
       - "8000:8000"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-promptwars2-494413}
+      - GCP_LOCATION=${GCP_LOCATION:-us-central1}
+      - USE_VERTEX_AI=${USE_VERTEX_AI:-true}
+      # For local dev: point to your SA key file
       - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-service-account.json
     volumes:
       - ./backend:/app
-      # Optional: uncomment if you have the key file to mount it
+      # Uncomment after downloading your service account key:
       # - ./gcp-service-account.json:/app/gcp-service-account.json:ro
 
   frontend:
@@ -21,5 +25,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - backend

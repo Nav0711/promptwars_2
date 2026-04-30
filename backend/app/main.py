@@ -2,21 +2,34 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import auth, elections, chat
 
-app = FastAPI(title="Chunav Saathi API", version="1.0.0")
+app = FastAPI(
+    title="Chunav Saathi API",
+    version="2.0.0",
+    description="India Election Intelligence Platform powered by Vertex AI & Firestore",
+)
 
-# CORS middleware
+# CORS — tighten for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For dev purposes
+    allow_origins=["*"],  # Replace with frontend Cloud Run URL in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/v1")
+app.include_router(auth.router,      prefix="/v1")
 app.include_router(elections.router, prefix="/v1")
-app.include_router(chat.router, prefix="/v1")
+app.include_router(chat.router,      prefix="/v1")
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "version": "2.0.0",
+        "ai_backend": "vertex_ai_gemini_1_5_flash",
+        "project": "promptwars2-494413",
+    }
+
+@app.get("/")
+def root():
+    return {"message": "Welcome to Chunav Saathi API v2 — India Election Intelligence"}
