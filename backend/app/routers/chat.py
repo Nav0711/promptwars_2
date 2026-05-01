@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from ..services.gemini import generate_chat_response
 from ..services.rate_limiter import ai_rate_limiter
+from ..services.logger import app_logger
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -78,6 +79,14 @@ async def chat(req: ChatRequest):
         latency = int((time.time() - start) * 1000)
         suggestions = _get_suggestions(req.message, req.language or "en")
 
+        app_logger.info("Chat request completed", extra={"extra_info": {
+            "session_id": req.session_id,
+            "language": req.language,
+            "latency_ms": latency,
+            "guardrail_triggered": triggered,
+            "message_length": len(req.message)
+        }})
+
         return ChatResponse(
             response=response_text,
             sources=sources,
@@ -86,4 +95,5 @@ async def chat(req: ChatRequest):
             latency_ms=latency,
         )
     except Exception as e:
+        app_logger.error(f"Chat request failed: {str(e)}", extra={"extra_info": {"session_id": req.session_id}})
         raise HTTPException(status_code=500, detail=str(e))
