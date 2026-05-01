@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
+from typing import Optional, List
 from ..services.firestore import get_db
+from ..services.analytics_service import get_turnout_trends, get_national_summary
+import datetime
 
 router = APIRouter(prefix="/elections", tags=["elections"])
 
@@ -176,3 +178,52 @@ def _mock_faqs():
             "source_url": "https://eci.gov.in/faqs/",
         },
     ]
+
+# ── Analytics Endpoints ───────────────────────────────────────────────────────
+
+@router.get("/analytics/turnout")
+async def get_turnout(state: Optional[str] = None):
+    """Historical voter turnout trends from BigQuery."""
+    data = get_turnout_trends(state)
+    return {"data": data, "source": "BigQuery — chunav_analytics dataset"}
+
+
+@router.get("/analytics/summary")
+async def get_analytics_summary():
+    """National-level election statistics summary."""
+    return get_national_summary()
+
+
+# ── Live Tracker Endpoint ─────────────────────────────────────────────────────
+
+_TRACKER_PHASES = [
+    {"id": "phase-wb-1", "state": "West Bengal",   "type": "Assembly By-Election",      "phase": 1, "date": "2026-05-07", "constituencies": 42, "total_seats": 42,  "status": "UPCOMING"},
+    {"id": "phase-bh-1", "state": "Bihar",          "type": "Assembly General Election", "phase": 1, "date": "2026-06-15", "constituencies": 80, "total_seats": 243, "status": "UPCOMING"},
+    {"id": "phase-bh-2", "state": "Bihar",          "type": "Assembly General Election", "phase": 2, "date": "2026-06-22", "constituencies": 83, "total_seats": 243, "status": "UPCOMING"},
+    {"id": "phase-up-1", "state": "Uttar Pradesh",  "type": "By-Election",               "phase": 1, "date": "2026-07-10", "constituencies": 10, "total_seats": 10,  "status": "UPCOMING"},
+]
+
+@router.get("/tracker")
+async def get_tracker():
+    """Live phase-wise election tracker with computed status and days_away."""
+    today = datetime.date.today()
+    phases = []
+    for phase in _TRACKER_PHASES:
+        p = phase.copy()
+        election_date = datetime.date.fromisoformat(p["date"])
+        delta = (election_date - today).days
+        if delta < 0:
+            p["status"] = "COMPLETED"
+        elif delta == 0:
+            p["status"] = "VOTING_TODAY"
+        else:
+            p["status"] = "UPCOMING"
+        p["days_away"] = abs(delta)
+        phases.append(p)
+    order = {"VOTING_TODAY": 0, "UPCOMING": 1, "COMPLETED": 2}
+    phases.sort(key=lambda x: (order[x["status"]], x["days_away"]))
+    return {
+        "phases": phases,
+        "last_updated": datetime.datetime.utcnow().isoformat() + "Z",
+        "next_phase": next((p for p in phases if p["status"] in ["UPCOMING", "VOTING_TODAY"]), None),
+    }

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from ..services.gemini import generate_chat_response
+from ..services.rate_limiter import ai_rate_limiter
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -63,7 +64,7 @@ def _get_suggestions(message: str, language: str) -> List[str]:
 
 # ── Route ─────────────────────────────────────────────────────────────────────
 
-@router.post("", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse, dependencies=[Depends(ai_rate_limiter)])
 async def chat(req: ChatRequest):
     try:
         import time
